@@ -249,7 +249,7 @@ target_metadata = Base.metadata
 ## セットアップ手順
 
 ### 前提
-
+**（）は初回マイグレーション作成時のメモなので実行しなくていい。基本1, 2, 8, 9のみ実行**
 - Docker + Docker Compose が動く環境
 - VSCode Dev Container もしくは compose で `app` コンテナに入れる状態
 
@@ -292,7 +292,7 @@ docker compose ps
 # db が (healthy) と表示されればOK
 ```
 
-### 3. 設定クラス動作確認
+### （3. 設定クラス動作確認）
 コンテナ内（vscodeコンテナ内ターミナル）で
 ```bash
 cd backend
@@ -301,7 +301,7 @@ uv run python -c "from app.core.config import settings; print(settings.database_
 
 → `postgresql+psycopg://app:app@db:5432/app` が出ればOK。
 
-### 4. DB接続確認
+### （4. DB接続確認）
 
 ```bash
 uv run python -c "from app.db.session import engine; print(engine.connect())"
@@ -309,7 +309,7 @@ uv run python -c "from app.db.session import engine; print(engine.connect())"
 
 → 接続オブジェクトが表示されればOK。エラーが出たらDBが起動していないかURL誤り。
 
-### 5. Model動作確認
+### （5. Model動作確認）
 
 ```bash
 uv run python -c "from app.models.user import User; print(User.__tablename__, User.__table__.columns.keys())"
@@ -317,7 +317,7 @@ uv run python -c "from app.models.user import User; print(User.__tablename__, Us
 
 → `users ['id', 'student_id', 'password_hash', 'created_at']` が出ればOK。
 
-### 6. Alembic 初期化（初回のみ）
+### （6. Alembic 初期化）
 
 ```bash
 cd backend
@@ -328,7 +328,7 @@ uv run alembic init alembic
 
 その後、前述の通り `alembic.ini` の `sqlalchemy.url` をコメントアウトし、`alembic/env.py` を3箇所編集する。
 
-### 7. 初回マイグレーション生成
+### （7. マイグレーション生成）
 
 ```bash
 uv run alembic revision --autogenerate -m "create users table"
@@ -350,7 +350,7 @@ uv run alembic upgrade head
 docker compose exec db psql -U app -d app -c "\dt"
 ```
 
-→ `users` と `alembic_version` の2テーブルが見えれば完了。
+→ テーブルが見えれば完了。
 
 ---
 
