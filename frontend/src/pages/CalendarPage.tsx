@@ -6,13 +6,13 @@ import { useEffect, useState } from "react";
 import type { EventInput } from "@fullcalendar/core";
 import type { CalendarResponse } from "../types/api";
 import { periodToTime } from "../constants";
+import { api } from "../lib/api";
 
 export default function CalendarPage() {
     const [events, setEvents] = useState<EventInput[]>([]) // FullCalendarの型
 
     useEffect(() => {
-        fetch('/api/calendar?start=2026-04-01&end=2026-04-30')
-        .then(res => res.json())
+        api.get<CalendarResponse>("/calendar?start=2026-04-01&end=2026-04-30")
         .then((data: CalendarResponse) => {
             const courseEvents = data.courses.map(c => ({
             title: c.name,
