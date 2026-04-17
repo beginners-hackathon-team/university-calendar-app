@@ -1,0 +1,47 @@
+{
+  "name": "app_name-dev",
+  "dockerComposeFile": ["../compose.yml", "../compose.override.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "remoteUser": "vscode",
+
+  "features": {
+    
+  },
+
+  "forwardPorts": [8000, 5173],
+
+  "portsAttributes": {
+    "8000": {
+      "label": "FastAPI",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Frontend (Vite)",
+      "onAutoForward": "openBrowser"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/workspace/backend/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "editor.formatOnSave": true
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-azuretools.vscode-docker",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  },
+
+  "postCreateCommand": "bash -lic 'if [ -f /workspace/backend/pyproject.toml ]; then cd /workspace/backend && uv sync; fi && if [ -f /workspace/frontend/package.json ]; then cd /workspace/frontend && npm install; fi'",
+
+  "postStartCommand": "bash -lc 'git config --global --add safe.directory /workspace'"
+}

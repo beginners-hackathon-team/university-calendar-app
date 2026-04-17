@@ -1,0 +1,48 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    working_dir: /workspace
+    command: sleep infinity
+    tty: true
+    stdin_open: true
+    volumes:
+      - .:/workspace:cached
+      - uv-cache:/home/vscode/.cache/uv
+      - npm-cache:/home/vscode/.npm
+    ports:
+      - "8000:8000" # FastAPI
+      - "5173:5173" # Frontend (Vite)
+    environment:
+      UV_LINK_MODE: copy
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy # dbのhealthcheckがokになるまでappの起動を待つ
+
+  db:
+    image: postgres:16
+    environment: 
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # DBツールを使うとき用(いらないかも)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"] # Postgresが接続可能かを確認するコマンド
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# データを永続化
+volumes:
+  uv-cache:
+  npm-cache:
+  pg-data:

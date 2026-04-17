@@ -1,0 +1,19 @@
+# このファイルをコピーして compose.override.yml として使用
+# compose.override.yml は .gitignore に含まれており、個人設定のみ記載
+#
+# 使い方:
+#   cp compose.override.yml.example compose.override.yml
+#
+# Claude Code を使用する場合で履歴・設定を永続化したいときは以下のコメントを外す
+# ~/.claude がない場合は自動で作成
+# vscodeの拡張機能でClaude Code for VS Codeをインストールすれば使える(リビルド毎に必要)
+# 
+# 他のAIエージェントやwindows以外の場合は方法が違うかも
+
+services:
+  app:
+    volumes: []
+    # - ~/.claude:/home/vscode/.claude
+
+    environment:
+      - CORS_ORIGINS=http://localhost:5173
