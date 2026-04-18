@@ -1,12 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom"; // SPAのためのルーティング
-import App from "./App";
+import { BrowserRouter } from "react-router-dom";
+import APP from "./APP";
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+ <StrictMode>
     <BrowserRouter>
-      <App />
+       <APP />
     </BrowserRouter>
-  </StrictMode>
+ </StrictMode>
 )
