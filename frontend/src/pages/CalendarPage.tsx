@@ -3,14 +3,32 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import jaLocale from '@fullcalendar/core/locales/ja';
+import type { DateSelectArg, EventClickArg } from '@fullcalendar/core/index.js';
 import { useState, useEffect } from 'react';
+import { fetchCourses } from '../api/courses';
+
+type EventType = {
+  title: string;
+  start: Date | string // 祝日は文字列
+  color?: string;
+  id?: string;
+  className?: string;
+  allDay?: boolean;
+  editable?: boolean;
+  display?: string;
+  textColor?: string;
+  end?: string;
+}
 
 export default function CalendarPage() {
-  const [events, setEvents] = useState([
-    { title: 'ミーティング', start: new Date(), color: '#4f46e5' }
-  ]);
+  const [events, setEvents] = useState<EventType[]>([]);
 
-  // 1. 日本時間の yyyy-mm-dd を取得するヘルパー関数
+  useEffect(() => {
+    fetchCourses().then(data => {
+      console.log('取得したデータ', data);
+    })
+  }, [])
+
   const getLocalDateString = (date: Date) => {
     const year = date.getFullYear();
     const month = ('0' + (date.getMonth() + 1)).slice(-2);
@@ -41,13 +59,15 @@ export default function CalendarPage() {
       });
   }, []);
 
-  const handleDateSelect = (selectInfo: any) => {
-    let title = prompt('予定のタイトルを入力してください');
-    let calendarApi = selectInfo.view.calendar;
+  // 予定を追加する処理
+  const handleDateSelect = (selectInfo: DateSelectArg) => {
+    const title = prompt('予定のタイトルを入力してください');
+    const calendarApi = selectInfo.view.calendar;
     calendarApi.unselect();
 
     if (title) {
       const newEvent = {
+        id: String(Date.now()), // 削除しやすくするために一意のIDを付与
         title,
         start: selectInfo.startStr,
         end: selectInfo.endStr,
@@ -55,6 +75,19 @@ export default function CalendarPage() {
         color: '#4f46e5'
       };
       setEvents([...events, newEvent]);
+    }
+  };
+
+  // ★ 予定をクリックして削除する処理を追加
+  const handleEventClick = (clickInfo: EventClickArg) => {
+    // 祝日は削除できないようにする
+    if (clickInfo.event.extendedProps.className === 'is-holiday') {
+      return;
+    }
+
+    if (confirm(`予定「${clickInfo.event.title}」を削除しますか？`)) {
+      // ステートからクリックされたイベントのID以外を残す（＝削除）
+      setEvents(events.filter(event => event.id !== clickInfo.event.id));
     }
   };
 
@@ -69,29 +102,19 @@ export default function CalendarPage() {
           box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); 
         }
 
-        /* 土曜日の文字色 */
         .fc-day-sat .fc-col-header-cell-cushion,
-        .fc-day-sat .fc-daygrid-day-number { 
-          color: blue !important; 
-        }
+        .fc-day-sat .fc-daygrid-day-number { color: blue !important; }
         
-        /* 日曜日・祝日の文字色 */
         .fc-day-sun .fc-col-header-cell-cushion,
         .fc-day-sun .fc-daygrid-day-number,
         .is-holiday-column .fc-col-header-cell-cushion,
-        .is-holiday-column .fc-daygrid-day-number {
-          color: red !important; 
-        }
+        .is-holiday-column .fc-daygrid-day-number { color: red !important; }
 
-        .is-holiday {
-          border: none !important;
-          font-weight: bold;
-          font-size: 0.85em;
-        }
-
-        .fc-day-today { 
-          background-color: #fefce8 !important; 
-        }
+        .is-holiday { border: none !important; font-weight: bold; font-size: 0.85em; }
+        .fc-day-today { background-color: #fefce8 !important; }
+        
+        /* 予定にマウスを乗せた時に指のマークにする */
+        .fc-event { cursor: pointer; }
       `}</style>
 
       <h1 style={{ textAlign: 'center', marginBottom: '20px', color: '#111827', fontSize: '28px', fontWeight: 'bold' }}>
@@ -106,13 +129,13 @@ export default function CalendarPage() {
         selectable={true}
         selectMirror={true}
         select={handleDateSelect}
+        eventClick={handleEventClick} // ★ ここに追加
         
         scrollTime="07:00:00"
         slotDuration="00:30:00"
         snapDuration="00:05:00"
         slotLabelInterval="01:00:00"
         
-        // 日本時間の関数を使って祝日判定を行う
         dayHeaderClassNames={(arg) => {
           const dateStr = getLocalDateString(arg.date);
           const isHoliday = events.some(e => e.start === dateStr && e.className === 'is-holiday');

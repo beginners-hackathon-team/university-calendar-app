@@ -1,6 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { periodToTime } from '../periodToTime';
+import { createCourses, fetchCourses } from '../api/courses';
+
+const CURRENT_YEAR = 2026;
 
 type Course = {
+  id: string;
+  name: string;
+  teacher: string;
+  room: string;
+  year: number;
+  quarter: number;
+  day_of_week: string;
+  period: number;
+};
+
+type CourseInput = {
     name: string;
     teacher: string;
     room: string;
@@ -8,30 +23,66 @@ type Course = {
 
 export default function CoursesPage() {
     const [coursesData, setCoursesData] = useState<{ [key: string]: Course }>({
-        "月1": { name: "線形代数学I", teacher: "佐藤 健一", room: "A101講義室" },
+
     });
-    const [baseDate, setBaseDate] = useState(new Date());
+
+    // 全件取得 GET /api/course
+    useEffect(() => {
+    fetchCourses().then((data: any[][]) => {
+        // data は [["id", "name", "room", "teacher", year, quarter, "day", period], ...]
+        const map: { [key: string]: Course } = {};
+        for (const row of data) {
+        const [id, name, room, teacher, year, quarter, day_of_week, period] = row;
+        const key = `${day_of_week}${period}`;
+        map[key] = { id, name, room, teacher, year, quarter, day_of_week, period };
+        }
+        setCoursesData(map);
+    });
+    }, []);
+
 
     // --- モーダル管理用のState ---
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
-    const [tempData, setTempData] = useState<Course>({ name: "", teacher: "", room: "" });
+    const [tempData, setTempData] = useState<CourseInput>({ name: "", teacher: "", room: "" });
 
     // 編集・追加の開始
     const openEditor = (key: string) => {
         setEditingKey(key);
         // すでにデータがあればそれを、なければ空を入れる
-        setTempData(coursesData[key] || { name: "", teacher: "", room: "" });
+        const existing = coursesData[key];
+        setTempData(existing
+        ? { name: existing.name, teacher: existing.teacher, room: existing.room }
+        : { name: "", teacher: "", room: "" }
+    );
+
         setIsModalOpen(true);
     };
 
     // 保存実行
-    const saveCourse = () => {
+    const saveCourse = async () => {
         if (!tempData.name) return alert("講義名を入力してください");
-        if (editingKey) {
-            setCoursesData({ ...coursesData, [editingKey]: tempData });
-            setIsModalOpen(false);
-        }
+        if (!editingKey) return;
+
+        const day_of_week = editingKey.slice(0, 1); // "月3" -> "月"
+        const period = Number(editingKey.slice(1)); // "月3" -> 3
+
+        // POST /api/course
+        const result = await createCourses({
+            name: tempData.name,
+            room: tempData.room,
+            teacher: tempData.teacher,
+            year: CURRENT_YEAR,
+            quarter: 1,
+            day_of_week: day_of_week,
+            period: period,
+        });
+
+        const [id, name, room, teacher, year, quarter, dow, per] = result;
+        const newCourse: Course = { id, name, room, teacher, year, quarter, day_of_week: dow, period: per};
+
+        setCoursesData({...coursesData, [editingKey]: newCourse });
+        setIsModalOpen(false);
     };
 
     // 削除実行
@@ -44,54 +95,22 @@ export default function CoursesPage() {
     };
 
     const days = ["月", "火", "水", "木", "金"];
-    const periods = [
-        { period: 1, start: "08:45", end: "10:15" },
-        { period: 2, start: "10:30", end: "12:00" },
-        { period: 3, start: "13:00", end: "14:30" },
-        { period: 4, start: "14:45", end: "16:15" },
-        { period: 5, start: "16:30", end: "18:00" },
-        { period: 6, start: "18:15", end: "19:45" },
-    ];
-
-    const getWeekDays = (date: Date) => {
-        const current = new Date(date);
-        const dayOfWeek = current.getDay(); 
-        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        const monday = new Date(current.setDate(current.getDate() + diffToMonday));
-        return days.map((dayName, index) => {
-            const d = new Date(monday);
-            d.setDate(monday.getDate() + index);
-            return { dayName, dateStr: `${d.getMonth() + 1}/${d.getDate()}` };
-        });
-    };
-
-    const weekDays = getWeekDays(baseDate);
-    const moveWeek = (offset: number) => {
-        const newDate = new Date(baseDate);
-        newDate.setDate(baseDate.getDate() + (offset * 7));
-        setBaseDate(newDate);
-    };
+    const periods = periodToTime
 
     return (
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
             <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '30px' }}>🗓️ 金沢大学の時間割</h1>
 
             {/* ナビゲーション */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '25px' }}>
-                <button onClick={() => moveWeek(-1)} style={navButtonStyle}>先週</button>
-                <button onClick={() => setBaseDate(new Date())} style={todayButtonStyle}>今日</button>
-                <button onClick={() => moveWeek(1)} style={navButtonStyle}>来週</button>
-            </div>
 
             {/* 時間割テーブル */}
             <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
                 <thead>
                     <tr>
                         <th style={{ ...headerCellStyle, width: '80px' }}>時限</th>
-                        {weekDays.map(item => (
-                            <th key={item.dayName} style={headerCellStyle}>
-                                {item.dayName}<br/>
-                                <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#666' }}>({item.dateStr})</span>
+                        {days.map(dayName => (
+                            <th key={dayName} style={headerCellStyle}>
+                                {dayName}<br/>
                             </th>
                         ))}
                     </tr>
@@ -103,11 +122,11 @@ export default function CoursesPage() {
                                 <strong>{pData.period}</strong><br/>
                                 <small style={{ color: '#888' }}>{pData.start}</small>
                             </td>
-                            {weekDays.map(item => {
-                                const key = `${item.dayName}${pData.period}`;
+                            {days.map(dayName => {
+                                const key = `${dayName}${pData.period}`;
                                 const course = coursesData[key];
                                 return (
-                                    <td key={item.dayName} style={contentCellStyle}>
+                                    <td key={dayName} style={contentCellStyle}>
                                         {course ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 {/* 講義詳細表示（ラベル付き） */}
