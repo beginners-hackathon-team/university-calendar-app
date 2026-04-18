@@ -23,12 +23,15 @@ def health():
     return {"status": "ok"}
 
 
-users = []
+list = [[], [], []]
 
 
 @app.post("/api/user")
-def create_user(user: CreateUser):
-    users.append(user.name)
+def create_user(user: CreateUser, db: Session = Depends(get_db)):
+    user = User(name=user.name, email=user.email, password_hash=user.password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 
