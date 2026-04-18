@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, HTTPException
 from pydantic import BaseModel, EmailStr
 from app.models.user import uuid_str
 from datetime import date
@@ -6,21 +6,16 @@ from datetime import date
 app = FastAPI()
 
 
+# ユーザー登録
 class CreateUser(BaseModel):
     name: str
     password: str
     email: EmailStr
 
 
+# ユーザー読み込み
 class ReadUser(BaseModel):
     name: str
-
-
-class CreateCourse(BaseModel):
-    name: str
-    room: str
-    date: date
-    period: int
 
 
 @app.get("/api/health")
@@ -28,37 +23,43 @@ def health():
     return {"status": "ok"}
 
 
-list = []
+users = []
 
 
 @app.post("/api/user")
 def create_user(user: CreateUser):
-    list.append(user.name)
+    users.append(user.name)
     return user
 
 
 @app.get("/api/users")
 def get_users():
-    return list
+    return users
 
 
 @app.get("/api/user/{user_name}")
 def get_user(user_name: str):
-    if user_name in list:
-        return user_name
+    if user_name not in users:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    else:
-        return None
+    return Response(status_code=204)
 
 
-@app.delete("/api/user")
+@app.delete("/api/user/{user_name}")
 def delete_user(user_name: str):
-    if user_name in list:
-        list.remove(user_name)
-        return list
+    if user_name not in users:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    else:
-        return None
+    users.remove(user_name)
+    return Response(status_code=204)
+
+
+# 講義登録
+class CreateCourse(BaseModel):
+    name: str
+    room: str
+    date: date
+    period: int
 
 
 # id, 授業名, 教室, date, 時限
@@ -89,16 +90,16 @@ def create_course(course: CreateCourse):
 def get_course(course_id: str):
     for course in courses:
         if course_id == course[0]:
-            return course
+            return Response(status_code=204)
 
-    return None
+    return HTTPException(status_code=404, detail="Course not found")
 
 
-@app.delete("/api/course")
+@app.delete("/api/course/{course_id}")
 def delete_course(course_id: str):
     for i, course in enumerate(courses):
         if course_id == course[0]:
             courses.pop(i)
-            return courses
+            return Response(status_code=204)
 
-    return None
+    return HTTPException(status_code=404, detail="Course not found")
