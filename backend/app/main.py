@@ -65,10 +65,40 @@ def delete_user(user_name: str):
 courses = [
     ["abc", "情報セキュリティ", "大講義室A", date(2026, 4, 15), 3],
     ["def", "アルゴリズム", "大講義室B", date(2026, 4, 16), 2],
-    ["abc", "量子コンピューティング", "大講義室C", date(2026, 4, 17), 4],
+    ["ghi", "量子コンピューティング", "大講義室C", date(2026, 4, 17), 4],
 ]
 
 
 @app.get("/api/courses")
 def get_courses():
     return courses
+
+
+@app.post("/api/course")
+def create_course(course: CreateCourse):
+    course_id = uuid_str()
+
+    new_course = [course_id, course.name, course.room, course.date, course.period]
+
+    courses.append(new_course)
+
+    return new_course
+
+
+@app.get("/api/course/{course_id}")
+def get_course(course_id: str):
+    for course in courses:
+        if course_id == course[0]:
+            return course
+
+    return None
+
+
+@app.delete("/api/course")
+def delete_course(course_id: str):
+    for i in range(len(courses)):
+        if course_id == courses[i][0]:
+            courses.pop(i)
+            return courses
+
+    return None
