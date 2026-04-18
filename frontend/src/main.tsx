@@ -3,10 +3,19 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 
+<<<<<<< HEAD
 createRoot(document.getElementById('root')!).render(
  <StrictMode>
     <BrowserRouter>
        <App />
     </BrowserRouter>
  </StrictMode>
+=======
+createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+        <BrowserRouter>
+            <App />
+        </BrowserRouter>
+    </StrictMode>
+>>>>>>> dbeaa3f (click complete)
 )

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Routes, Route } from "react-router-dom";
 import CalendarPage from "./pages/CalendarPage";
 import CoursesPage from "./pages/CoursesPage";
@@ -13,4 +14,24 @@ export default function App() {
         </Routes>
     );
 
+=======
+import { useState } from "react";
+
+export default function App() {
+    const [count, setCount] = useState(0);
+
+    return(
+      <div >
+        <h2>カウンター</h2>
+        <div>
+            {count}
+        </div>
+        <div>
+            <button onClick={() => setCount(count + 1)}>
+                 +1
+            </button>
+        </div>
+      </div>
+    );
+>>>>>>> dbeaa3f (click complete)
 }
