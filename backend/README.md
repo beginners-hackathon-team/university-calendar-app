@@ -15,3 +15,9 @@ cd backend
 uv sync
 
 ```
+---
+## DB更新
+```
+alembic revision --autogenerate -m "コメント" 
+alembic upgrade head
+```

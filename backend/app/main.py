@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel, EmailStr
+from pytest import Session
+from app.models.user import User
+from app.db.session import get_db
 
 app = FastAPI()
 
@@ -19,12 +22,15 @@ def health():
     return {"status": "ok"}
 
 
-list = []
+list = [[], [], []]
 
 
 @app.post("/api/user")
-def create_user(user: CreateUser):
-    list.append(user.name)
+def create_user(user: CreateUser, db: Session = Depends(get_db)):
+    user = User(name=user.name, email=user.email, password_hash=user.password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 
