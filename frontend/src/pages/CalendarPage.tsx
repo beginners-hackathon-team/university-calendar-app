@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid'; // 追加
@@ -23,3 +24,8 @@ export default function CalendarPage() {
   );
 }
 
+=======
+export default function CalendarPage() {
+    return (<h1>カレンダー</h1>)
+}
+>>>>>>> 0d40b34 (カレンダー、時間割ページ作成)
