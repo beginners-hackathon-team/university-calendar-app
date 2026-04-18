@@ -96,8 +96,8 @@ def get_course(course_id: str):
 
 @app.delete("/api/course")
 def delete_course(course_id: str):
-    for i in range(len(courses)):
-        if course_id == courses[i][0]:
+    for i, course in enumerate(courses):
+        if course_id == course[0]:
             courses.pop(i)
             return courses
 
