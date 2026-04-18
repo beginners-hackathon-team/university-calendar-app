@@ -21,3 +21,9 @@ uv sync
 alembic revision --autogenerate -m "コメント" 
 alembic upgrade head
 ```
+
+---
+## コンフリクトした時
+```
+git pull --rebase origin develop
+```
