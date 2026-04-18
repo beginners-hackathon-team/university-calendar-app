@@ -6,8 +6,8 @@ app = FastAPI()
 
 class CreateUser(BaseModel):
     name: str
-    pas: str
-    mail: EmailStr
+    password: str
+    email: EmailStr
 
 
 class ReadUser(BaseModel):
@@ -22,7 +22,7 @@ def health():
 list = []
 
 
-@app.post("/spi/user")
+@app.post("/api/user")
 def create_user(user: CreateUser):
     list.append(user.name)
     return user
@@ -39,7 +39,7 @@ def get_user(user_name: str):
         return user_name
 
     else:
-        return -1
+        return None
 
 
 @app.delete("/api/user")
@@ -49,4 +49,4 @@ def delete_user(user_name: str):
         return list
 
     else:
-        return -1
+        return None
