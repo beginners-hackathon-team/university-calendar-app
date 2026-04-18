@@ -8,7 +8,7 @@ type Course = {
 
 export default function CoursesPage() {
     const [coursesData, setCoursesData] = useState<{ [key: string]: Course }>({
-        "月1": { name: "線形代数学I", teacher: "佐藤 健一", room: "A101講義室" },
+        
     });
     const [baseDate, setBaseDate] = useState(new Date());
 
@@ -74,7 +74,7 @@ export default function CoursesPage() {
 
     return (
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-            <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '30px' }}>🗓️ 金沢大学の時間割</h1>
+            <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '30px' }}>金沢大学の時間割</h1>
 
             {/* ナビゲーション */}
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '25px' }}>
@@ -101,7 +101,9 @@ export default function CoursesPage() {
                         <tr key={pData.period}>
                             <td style={timeCellStyle}>
                                 <strong>{pData.period}</strong><br/>
-                                <small style={{ color: '#888' }}>{pData.start}</small>
+                                <small style={{ color: '#888', display: 'block', fontSize: '10px', marginTop: '4px' }}>
+                                   {pData.start}<br/>~<br/>{pData.end}
+                                </small>
                             </td>
                             {weekDays.map(item => {
                                 const key = `${item.dayName}${pData.period}`;
