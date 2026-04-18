@@ -9,6 +9,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "alembic>=1.13",
     "pydantic-settings>=2.5",
+    "email-validator>=2.3.0",
 ]
 
 
