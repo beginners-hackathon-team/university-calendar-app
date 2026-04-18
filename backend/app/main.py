@@ -17,6 +17,13 @@ class ReadUser(BaseModel):
     name: str
 
 
+class CreateCourse(BaseModel):
+    name: str
+    room: str
+    date: date
+    period: int
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -34,7 +41,7 @@ def create_user(user: CreateUser, db: Session = Depends(get_db)):
     return user
 
 
-@app.get("/api/user")
+@app.get("/api/users")
 def get_users():
     return list
 
@@ -56,3 +63,16 @@ def delete_user(user_name: str):
 
     else:
         return None
+
+
+# id, 授業名, 教室, date, 時限
+courses = [
+    ["abc", "情報セキュリティ", "大講義室A", date(2026, 4, 15), 3],
+    ["def", "アルゴリズム", "大講義室B", date(2026, 4, 16), 2],
+    ["abc", "量子コンピューティング", "大講義室C", date(2026, 4, 17), 4],
+]
+
+
+@app.get("/api/courses")
+def get_courses():
+    return courses
