@@ -22,40 +22,39 @@ type CourseInput = {
 };
 
 export default function CoursesPage() {
-    const [coursesData, setCoursesData] = useState<{ [key: string]: Course }>({
-
-    });
-
-    // 全件取得 GET /api/course
-    useEffect(() => {
-    fetchCourses().then((data: any[][]) => {
-        // data は [["id", "name", "room", "teacher", year, quarter, "day", period], ...]
-        const map: { [key: string]: Course } = {};
-        for (const row of data) {
-        const [id, name, room, teacher, year, quarter, day_of_week, period] = row;
-        const key = `${day_of_week}${period}`;
-        map[key] = { id, name, room, teacher, year, quarter, day_of_week, period };
-        }
-        setCoursesData(map);
-    });
-    }, []);
-
+    const [coursesData, setCoursesData] = useState<{ [key: string]: Course }>({});
+    
+    // --- 表示条件管理用のState ---
+    const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+    const [selectedQuarter, setSelectedQuarter] = useState(1);
 
     // --- モーダル管理用のState ---
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [tempData, setTempData] = useState<CourseInput>({ name: "", teacher: "", room: "" });
 
+    // データ取得 (年度やクォーターが変わるたびに実行)
+    useEffect(() => {
+        // fetchCoursesが引数(year, quarter)を受け取れる前提
+        fetchCourses(selectedYear, selectedQuarter).then((data: any[][]) => {
+            const map: { [key: string]: Course } = {};
+            for (const row of data) {
+                const [id, name, room, teacher, year, quarter, day_of_week, period] = row;
+                const key = `${day_of_week}${period}`;
+                map[key] = { id, name, room, teacher, year, quarter, day_of_week, period };
+            }
+            setCoursesData(map);
+        });
+    }, [selectedYear, selectedQuarter]);
+
     // 編集・追加の開始
     const openEditor = (key: string) => {
         setEditingKey(key);
-        // すでにデータがあればそれを、なければ空を入れる
         const existing = coursesData[key];
         setTempData(existing
-        ? { name: existing.name, teacher: existing.teacher, room: existing.room }
-        : { name: "", teacher: "", room: "" }
-    );
-
+            ? { name: existing.name, teacher: existing.teacher, room: existing.room }
+            : { name: "", teacher: "", room: "" }
+        );
         setIsModalOpen(true);
     };
 
@@ -64,24 +63,23 @@ export default function CoursesPage() {
         if (!tempData.name) return alert("講義名を入力してください");
         if (!editingKey) return;
 
-        const day_of_week = editingKey.slice(0, 1); // "月3" -> "月"
-        const period = Number(editingKey.slice(1)); // "月3" -> 3
+        const day_of_week = editingKey.slice(0, 1);
+        const period = Number(editingKey.slice(1));
 
-        // POST /api/course
         const result = await createCourses({
             name: tempData.name,
             room: tempData.room,
             teacher: tempData.teacher,
-            year: CURRENT_YEAR,
-            quarter: 1,
+            year: selectedYear,
+            quarter: selectedQuarter,
             day_of_week: day_of_week,
             period: period,
         });
 
         const [id, name, room, teacher, year, quarter, dow, per] = result;
-        const newCourse: Course = { id, name, room, teacher, year, quarter, day_of_week: dow, period: per};
+        const newCourse: Course = { id, name, room, teacher, year, quarter, day_of_week: dow, period: per };
 
-        setCoursesData({...coursesData, [editingKey]: newCourse });
+        setCoursesData({ ...coursesData, [editingKey]: newCourse });
         setIsModalOpen(false);
     };
 
@@ -91,17 +89,43 @@ export default function CoursesPage() {
             const newData = { ...coursesData };
             delete newData[key];
             setCoursesData(newData);
+            // 本来はここで API の DELETE リクエストも送るのが理想です
         }
     };
 
     const days = ["月", "火", "水", "木", "金"];
-    const periods = periodToTime
+    const periods = periodToTime; // periodToTime.ts から import している想定
 
     return (
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-            <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '30px' }}>🗓️ 金沢大学の時間割</h1>
-
-            {/* ナビゲーション */}
+            <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '10px' }}>🗓️ 金沢大学の時間割</h1>
+            
+            {/* 年度・クォーター選択セレクター */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '30px' }}>
+                <div style={selectorGroupStyle}>
+                    <label style={labelStyle}>年度</label>
+                    <select 
+                        value={selectedYear} 
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        style={selectStyle}
+                    >
+                        <option value={2026}>2026年度</option>
+                    </select>
+                </div>
+                <div style={selectorGroupStyle}>
+                    <label style={labelStyle}>学期</label>
+                    <select 
+                        value={selectedQuarter} 
+                        onChange={(e) => setSelectedQuarter(Number(e.target.value))}
+                        style={selectStyle}
+                    >
+                        <option value={1}>第1クォーター (Q1)</option>
+                        <option value={2}>第2クォーター (Q2)</option>
+                        <option value={3}>第3クォーター (Q3)</option>
+                        <option value={4}>第4クォーター (Q4)</option>
+                    </select>
+                </div>
+            </div>
 
             {/* 時間割テーブル */}
             <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
@@ -109,9 +133,7 @@ export default function CoursesPage() {
                     <tr>
                         <th style={{ ...headerCellStyle, width: '80px' }}>時限</th>
                         {days.map(dayName => (
-                            <th key={dayName} style={headerCellStyle}>
-                                {dayName}<br/>
-                            </th>
+                            <th key={dayName} style={headerCellStyle}>{dayName}</th>
                         ))}
                     </tr>
                 </thead>
@@ -120,7 +142,9 @@ export default function CoursesPage() {
                         <tr key={pData.period}>
                             <td style={timeCellStyle}>
                                 <strong>{pData.period}</strong><br/>
-                                <small style={{ color: '#888' }}>{pData.start}</small>
+                                <small style={{ color: '#888', display: 'block', fontSize: '10px', marginTop: '4px' }}>
+                                    {pData.start}<br/>~<br/>{pData.end}
+                                </small>
                             </td>
                             {days.map(dayName => {
                                 const key = `${dayName}${pData.period}`;
@@ -129,12 +153,9 @@ export default function CoursesPage() {
                                     <td key={dayName} style={contentCellStyle}>
                                         {course ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                {/* 講義詳細表示（ラベル付き） */}
                                                 <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#2c3e50', wordBreak: 'break-all' }}>{course.name}</div>
                                                 <div style={{ fontSize: '11px', color: '#7f8c8d' }}>👤 {course.teacher}</div>
                                                 <div style={{ fontSize: '11px', color: '#e67e22' }}>📍 {course.room}</div>
-                                                
-                                                {/* ボタンエリア */}
                                                 <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '8px' }}>
                                                     <button onClick={() => openEditor(key)} style={editBtnStyle}>変更</button>
                                                     <button onClick={() => deleteCourse(key)} style={deleteBtnStyle}>削除</button>
@@ -151,18 +172,17 @@ export default function CoursesPage() {
                 </tbody>
             </table>
 
-            {/* --- 入力用モーダル --- */}
+            {/* 入力用モーダル */}
             {isModalOpen && (
                 <div style={modalOverlayStyle}>
                     <div style={modalContentStyle}>
-                        <h3 style={{ marginTop: 0 }}>講義情報の入力</h3>
+                        <h3 style={{ marginTop: 0 }}>講義情報の入力 ({selectedYear}年 Q{selectedQuarter})</h3>
                         <div style={inputGroupStyle}>
                             <label style={labelStyle}>講義名</label>
                             <input 
                                 value={tempData.name} 
                                 onChange={(e) => setTempData({...tempData, name: e.target.value})}
                                 style={inputStyle}
-                                
                             />
                         </div>
                         <div style={inputGroupStyle}>
@@ -171,7 +191,6 @@ export default function CoursesPage() {
                                 value={tempData.teacher} 
                                 onChange={(e) => setTempData({...tempData, teacher: e.target.value})}
                                 style={inputStyle}
-                                
                             />
                         </div>
                         <div style={inputGroupStyle}>
@@ -180,7 +199,6 @@ export default function CoursesPage() {
                                 value={tempData.room} 
                                 onChange={(e) => setTempData({...tempData, room: e.target.value})}
                                 style={inputStyle}
-                                
                             />
                         </div>
                         <div style={{ display: 'flex', gap: '10px', marginTop: '25px' }}>
@@ -194,7 +212,12 @@ export default function CoursesPage() {
     );
 }
 
-// --- スタイル定義（CSS-in-JS） ---
+//あ
+
+// --- スタイル定義 ---
+const selectorGroupStyle = { display: 'flex', flexDirection: 'column' as const, gap: '4px' };
+const selectStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', backgroundColor: '#fff', cursor: 'pointer', fontSize: '20px' };
+
 const modalOverlayStyle: React.CSSProperties = {
     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
     backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
@@ -208,9 +231,6 @@ const inputStyle = { width: '100%', padding: '10px', marginTop: '5px', borderRad
 
 const saveButtonStyle = { flex: 1, padding: '12px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const cancelButtonStyle = { flex: 1, padding: '12px', backgroundColor: '#eee', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer' };
-
-const navButtonStyle = { padding: '10px 20px', cursor: 'pointer', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '20px' };
-const todayButtonStyle = { ...navButtonStyle, backgroundColor: '#fff', color: '#333', border: '1px solid #ccc' };
 
 const editBtnStyle = { padding: '3px 8px', fontSize: '10px', backgroundColor: '#fff', border: '1px solid #007bff', color: '#007bff', borderRadius: '4px', cursor: 'pointer' };
 const deleteBtnStyle = { padding: '3px 8px', fontSize: '10px', backgroundColor: '#fff', border: '1px solid #ff4d4f', color: '#ff4d4f', borderRadius: '4px', cursor: 'pointer' };
