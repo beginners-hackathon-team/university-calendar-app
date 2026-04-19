@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, Foreign_key
-from app.models.user import uuid_str
+from app.utils.uuid import uuid_str
 from app.db.base import Base
 
 
