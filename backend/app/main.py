@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Response, HTTPException
+from fastapi import FastAPI, Response, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from pytest import Session
-from app.models.user import User
+from datetime import date
+from app.models.user import User, uuid_str
 from app.db.session import get_db
 
 app = FastAPI()
@@ -94,9 +95,9 @@ def create_course(course: CreateCourse):
 def get_course(course_id: str):
     for course in courses:
         if course_id == course[0]:
-            return course
+            return Response(status_code=204)
 
-    return None
+    raise HTTPException(status_code=404, detail="Corse not found")
 
 
 @app.delete("/api/course")
@@ -104,6 +105,6 @@ def delete_course(course_id: str):
     for i, course in enumerate(courses):
         if course_id == course[0]:
             courses.pop(i)
-            return courses
+            return Response(status_code=204)
 
-    return None
+    raise HTTPException(status_code=404, detail="Course not found")
