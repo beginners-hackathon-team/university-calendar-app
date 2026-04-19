@@ -1,6 +1,6 @@
 import { Link, Outlet } from "react-router-dom";
 
-
+// ヘッダー付きレイアウト
 export default function Layout() {
     return (
         <>
