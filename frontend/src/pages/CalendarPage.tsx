@@ -7,9 +7,12 @@ import type { DateSelectArg, EventClickArg } from '@fullcalendar/core/index.js';
 import { useState, useEffect } from 'react';
 import { fetchCourses } from '../api/courses';
 
+// ★ 大学行事のJSONをインポート
+import universityEventsData from '../Universityevent.json';
+
 type EventType = {
   title: string;
-  start: Date | string // 祝日は文字列
+  start: Date | string;
   color?: string;
   id?: string;
   className?: string;
@@ -23,6 +26,7 @@ type EventType = {
 export default function CalendarPage() {
   const [events, setEvents] = useState<EventType[]>([]);
 
+  // 既存のコース取得処理（元のコードを維持）
   useEffect(() => {
     fetchCourses().then(data => {
       console.log('取得したデータ', data);
@@ -36,27 +40,72 @@ export default function CalendarPage() {
     return `${year}-${month}-${day}`;
   };
 
+  // ★ 大学行事のタイプ別色分け定義
+  const getUnivEventStyle = (type: string) => {
+    switch (type) {
+      case 'exam': 
+        return { color: '#fee2e2', textColor: '#b91c1c' }; // 試験：赤系
+      case 'transfer': 
+        return { color: '#fef3c7', textColor: '#b45309' }; // 振替：オレンジ系
+      case 'interval': 
+        return { color: '#f0fdf4', textColor: '#15803d' }; // インターバル：緑系
+      default: 
+        return { color: '#e0f2fe', textColor: '#0369a1' }; // その他：青系
+    }
+  };
+
   useEffect(() => {
-    fetch('https://holidays-jp.github.io/api/v1/date.json')
-      .then(r => r.json())
-      .then(data => {
-        const holidayEvents = Object.keys(data).map(date => ({
-          title: data[date],
-          start: date,
+    const fetchAllExternalEvents = async () => {
+      // 1. 祝日データの取得
+      const holidayRes = await fetch('https://holidays-jp.github.io/api/v1/date.json');
+      const holidayData = await holidayRes.json();
+      
+      const holidayEvents: EventType[] = Object.keys(holidayData).map(date => ({
+        title: holidayData[date],
+        start: date,
+        allDay: true,
+        editable: false,
+        display: 'block',
+        color: '#ffcccc',
+        textColor: 'red',
+        className: 'is-holiday',
+        id: `holiday-${date}`
+      }));
+
+      // 2. 大学行事データの整形
+      const currentYear = new Date().getFullYear();
+      const univEvents: EventType[] = universityEventsData.map((item, index) => {
+        const month = parseInt(item.date.split('-')[0]);
+        const year = month <= 3 ? currentYear + 1 : currentYear;
+        
+        const displayTitle = item.type === 'transfer' && item.other 
+          ? `${item.name}(${item.other}曜授業)` 
+          : item.name;
+
+        const style = getUnivEventStyle(item.type);
+
+        return {
+          title: displayTitle,
+          start: `${year}-${item.date}`,
           allDay: true,
           editable: false,
           display: 'block',
-          color: '#ffcccc',
-          textColor: 'red',
-          className: 'is-holiday',
-          id: `holiday-${date}`
-        }));
-
-        setEvents(prev => {
-          const onlyUserEvents = prev.filter(e => !e.id?.startsWith('holiday-'));
-          return [...onlyUserEvents, ...holidayEvents];
-        });
+          color: style.color,
+          textColor: style.textColor,
+          className: 'is-univ-event',
+          id: `univ-${index}`
+        };
       });
+
+      setEvents(prev => {
+        const onlyUserEvents = prev.filter(e => 
+          !e.id?.startsWith('holiday-') && !e.id?.startsWith('univ-')
+        );
+        return [...onlyUserEvents, ...holidayEvents, ...univEvents];
+      });
+    };
+
+    fetchAllExternalEvents();
   }, []);
 
   // 予定を追加する処理
@@ -67,27 +116,27 @@ export default function CalendarPage() {
 
     if (title) {
       const newEvent = {
-        id: String(Date.now()), // 削除しやすくするために一意のIDを付与
+        id: String(Date.now()),
         title,
         start: selectInfo.startStr,
         end: selectInfo.endStr,
         allDay: selectInfo.allDay,
         color: '#4f46e5'
       };
-      setEvents([...events, newEvent]);
+      setEvents(prev => [...prev, newEvent]);
     }
   };
 
-  // ★ 予定をクリックして削除する処理を追加
+  // 予定をクリックして削除する処理
   const handleEventClick = (clickInfo: EventClickArg) => {
-    // 祝日は削除できないようにする
-    if (clickInfo.event.extendedProps.className === 'is-holiday') {
+    const classList = clickInfo.event.extendedProps.className;
+    // 祝日と大学行事は削除不可
+    if (classList === 'is-holiday' || classList === 'is-univ-event') {
       return;
     }
 
     if (confirm(`予定「${clickInfo.event.title}」を削除しますか？`)) {
-      // ステートからクリックされたイベントのID以外を残す（＝削除）
-      setEvents(events.filter(event => event.id !== clickInfo.event.id));
+      setEvents(prev => prev.filter(event => event.id !== clickInfo.event.id));
     }
   };
 
@@ -110,10 +159,8 @@ export default function CalendarPage() {
         .is-holiday-column .fc-col-header-cell-cushion,
         .is-holiday-column .fc-daygrid-day-number { color: red !important; }
 
-        .is-holiday { border: none !important; font-weight: bold; font-size: 0.85em; }
+        .is-holiday, .is-univ-event { border: none !important; font-weight: bold; font-size: 0.85em; }
         .fc-day-today { background-color: #fefce8 !important; }
-        
-        /* 予定にマウスを乗せた時に指のマークにする */
         .fc-event { cursor: pointer; }
       `}</style>
 
@@ -129,13 +176,15 @@ export default function CalendarPage() {
         selectable={true}
         selectMirror={true}
         select={handleDateSelect}
-        eventClick={handleEventClick} // ★ ここに追加
+        eventClick={handleEventClick}
         
+        // 元のコードにあった詳細設定を維持
         scrollTime="07:00:00"
         slotDuration="00:30:00"
         snapDuration="00:05:00"
         slotLabelInterval="01:00:00"
         
+        // 祝日(is-holiday)の時だけ日付を赤くする（大学行事は含めない）
         dayHeaderClassNames={(arg) => {
           const dateStr = getLocalDateString(arg.date);
           const isHoliday = events.some(e => e.start === dateStr && e.className === 'is-holiday');
