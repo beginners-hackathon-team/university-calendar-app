@@ -78,9 +78,8 @@ export default function CoursesPage() {
 
             {/* ナビゲーション */}
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '25px' }}>
-                <button onClick={() => moveWeek(-1)} style={navButtonStyle}>先週</button>
-                <button onClick={() => setBaseDate(new Date())} style={todayButtonStyle}>今日</button>
-                <button onClick={() => moveWeek(1)} style={navButtonStyle}>来週</button>
+                <button onClick={() => moveWeek(-1)} style={navButtonStyle}>前の週</button>
+                <button onClick={() => moveWeek(1)} style={navButtonStyle}>次の週</button>
             </div>
 
             {/* 時間割テーブル */}
