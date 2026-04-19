@@ -122,6 +122,84 @@ def create_course(create_course: CreateCourse, db: Session = Depends(get_db)):
     return user
 
 
+# @app.get("/api/courses/{year_month}")
+# def get_courses(year_month: str, db: Session = Depends(get_db)):
+#     year, month = map(int, year_month.split("-"))
+
+#     user = db.query(User).first()
+#     enrollments = db.query(Enrollment).filter(Enrollment.user_id == user.id).all()
+
+#     if not enrollments:
+#         return []
+
+#     course_ids = [enrollment.course_id for enrollment in enrollments]
+
+#     courses = db.query(Course).filter(Course.id.in_(course_ids)).all()
+#     course_dates = (
+#         db.query(CourseDate).filter(CourseDate.course_id.in_(course_ids)).all()
+#     )
+
+#     course_map = {course.id: course for course in courses}
+
+#     course_dates_map: dict[str, list[CourseDate]] = {}
+#     for course_date in course_dates:
+#         course_dates_map.setdefault(course_date.course_id, []).append(course_date)
+
+#     result = []
+
+#     for course_id in course_ids:
+#         course = course_map.get(course_id)
+#         if not course:
+#             continue
+
+#         course_date_list = course_dates_map.get(course_id, [])
+
+#         formatted_course_dates = []
+#         for course_date in course_date_list:
+#             all_dates = build_class_dates(
+#                 course_date.year,
+#                 course_date.quarter,
+#                 course_date.day_of_week,
+#             )
+
+#             # 👇 月でフィルタ
+#             filtered_dates = [
+#                 d for d in all_dates if d.year == year and d.month == month
+#             ]
+
+#             if not filtered_dates:
+#                 continue  # この月に授業ないならスキップ
+
+#             formatted_course_dates.append(
+#                 {
+#                     "id": course_date.id,
+#                     "course_id": course_date.course_id,
+#                     "year": course_date.year,
+#                     "quarter": course_date.quarter,
+#                     "day_of_week": course_date.day_of_week,
+#                     "period": course_date.period,
+#                     "dates": filtered_dates,
+#                 }
+#             )
+
+#         if not formatted_course_dates:
+#             continue  # この月に授業ないcourseは出さない
+
+#         result.append(
+#             {
+#                 "course": {
+#                     "id": course.id,
+#                     "name": course.name,
+#                     "room": course.room,
+#                     "teacher": course.teacher,
+#                 },
+#                 "course_dates": formatted_course_dates,
+#             }
+#         )
+
+#     return result
+
+
 @app.get("/api/courses/{year_month}")
 def get_courses(year_month: str, db: Session = Depends(get_db)):
     year, month = map(int, year_month.split("-"))
@@ -141,59 +219,32 @@ def get_courses(year_month: str, db: Session = Depends(get_db)):
 
     course_map = {course.id: course for course in courses}
 
-    course_dates_map: dict[str, list[CourseDate]] = {}
-    for course_date in course_dates:
-        course_dates_map.setdefault(course_date.course_id, []).append(course_date)
-
     result = []
 
-    for course_id in course_ids:
-        course = course_map.get(course_id)
+    for course_date in course_dates:
+        course = course_map.get(course_date.course_id)
         if not course:
             continue
 
-        course_date_list = course_dates_map.get(course_id, [])
+        all_dates = build_class_dates(
+            course_date.year,
+            course_date.quarter,
+            course_date.day_of_week,
+        )
 
-        formatted_course_dates = []
-        for course_date in course_date_list:
-            all_dates = build_class_dates(
-                course_date.year,
-                course_date.quarter,
-                course_date.day_of_week,
-            )
+        filtered_dates = [d for d in all_dates if d.year == year and d.month == month]
 
-            # 👇 月でフィルタ
-            filtered_dates = [
-                d for d in all_dates if d.year == year and d.month == month
-            ]
-
-            if not filtered_dates:
-                continue  # この月に授業ないならスキップ
-
-            formatted_course_dates.append(
-                {
-                    "id": course_date.id,
-                    "course_id": course_date.course_id,
-                    "year": course_date.year,
-                    "quarter": course_date.quarter,
-                    "day_of_week": course_date.day_of_week,
-                    "period": course_date.period,
-                    "dates": filtered_dates,
-                }
-            )
-
-        if not formatted_course_dates:
-            continue  # この月に授業ないcourseは出さない
+        if not filtered_dates:
+            continue
 
         result.append(
             {
-                "course": {
-                    "id": course.id,
-                    "name": course.name,
-                    "room": course.room,
-                    "teacher": course.teacher,
-                },
-                "course_dates": formatted_course_dates,
+                "id": course.id,
+                "name": course.name,
+                "room": course.room,
+                "teacher": course.teacher,
+                "dates": filtered_dates,
+                "period": course_date.period,
             }
         )
 
