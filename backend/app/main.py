@@ -200,8 +200,8 @@ def create_course(create_course: CreateCourse, db: Session = Depends(get_db)):
 #     return result
 
 
-@app.get("/api/courses/{year_month}")
-def get_courses(year_month: str, db: Session = Depends(get_db)):
+@app.get("/api/calendar/{year_month}")
+def get_calendar(year_month: str, db: Session = Depends(get_db)):
     year, month = map(int, year_month.split("-"))
 
     user = db.query(User).first()
@@ -281,3 +281,54 @@ def delete_all_courses(db: Session = Depends(get_db)):
 
     db.commit()
     return Response(status_code=204)
+
+
+@app.get("/api/courses/{year_quarter}")
+def get_courses(year_quarter: str, db: Session = Depends(get_db)):
+    year, quarter = map(int, year_quarter.split("-"))
+
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    enrollments = db.query(Enrollment).filter(Enrollment.user_id == user.id).all()
+
+    if not enrollments:
+        return []
+
+    course_ids = [enrollment.course_id for enrollment in enrollments]
+
+    courses = db.query(Course).filter(Course.id.in_(course_ids)).all()
+    course_dates = (
+        db.query(CourseDate)
+        .filter(
+            CourseDate.course_id.in_(course_ids),
+            CourseDate.year == year,
+            CourseDate.quarter == quarter,
+        )
+        .all()
+    )
+
+    course_map = {course.id: course for course in courses}
+
+    result = []
+
+    for course_date in course_dates:
+        course = course_map.get(course_date.course_id)
+        if not course:
+            continue
+
+        result.append(
+            {
+                "id": course.id,
+                "name": course.name,
+                "room": course.room,
+                "teacher": course.teacher,
+                "year": course_date.year,
+                "quarter": course_date.quarter,
+                "day_of_week": course_date.day_of_week,
+                "period": course_date.period,
+            }
+        )
+
+    return result
