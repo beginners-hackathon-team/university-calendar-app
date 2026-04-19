@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, HTTPException, Depends
+from fastapi import FastAPI, Response, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr
 from pytest import Session
 from datetime import date
@@ -38,25 +38,30 @@ def create_user(user: CreateUser, db: Session = Depends(get_db)):
 
 
 @app.get("/api/users")
-def get_users():
-    return users
+def get_users(db: Session = Depends(get_db)):
+    return db.query(User).all()
 
 
-@app.get("/api/user/{user_name}")
-def get_user(user_name: str):
-    if user_name not in users:
+@app.get("/api/user/{id}")
+def get_user(id: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == id).one_or_none()
+
+    if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return Response(status_code=204)
+    return user
 
 
-@app.delete("/api/user/{user_name}")
-def delete_user(user_name: str):
-    if user_name not in users:
+@app.delete("/api/user/{id}")
+def delete_user(id: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == id).one_or_none()
+
+    if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    users.remove(user_name)
-    return Response(status_code=204)
+    db.delete(user)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # 講義登録
