@@ -7,6 +7,7 @@ from app.models.course import Course
 from app.models.course_date import CourseDate
 from app.models.enrollment import Enrollment
 from app.db.session import get_db
+from app.services.schedule import build_class_dates
 
 app = FastAPI()
 
@@ -78,13 +79,6 @@ class CreateCourse(BaseModel):
     period: int
 
 
-# id, 授業名, 教室, date, 時限
-# courses = [
-#     ["abc", "情報セキュリティ", "大講義室A", date(2026, 4, 15), 3],
-#     ["def", "アルゴリズム", "大講義室B", date(2026, 4, 16), 2],
-#     ["ghi", "量子コンピューティング", "大講義室C", date(2026, 4, 17), 4],
-# ]
-# id, 授業名, 教室, 先生, 年度, クォーター, 曜日, 時限
 courses = [
     ["abc", "情報セキュリティ", "大講義室A", "山田太郎", "2026", 1, "月", 3],
     ["def", "アルゴリズム", "大講義室B", "山田太郎", "2026", 2, "水", 2],
@@ -120,24 +114,26 @@ calendar = [
 ]
 
 
-@app.get("/api/courses")
-def get_courses():
-    return courses
+# @app.get("/api/courses")
+# def get_courses():
+#     return courses
 
 
 @app.post("/api/course")
-def create_course(course: CreateCourse, db: Session = Depends(get_db)):
-    course = Course(name=course.name, room=course.room, teacher=course.teacher)
+def create_course(create_course: CreateCourse, db: Session = Depends(get_db)):
+    course = Course(
+        name=create_course.name, room=create_course.room, teacher=create_course.teacher
+    )
     db.add(course)
     db.commit()
     db.refresh(course)
 
     course_date = CourseDate(
         course_id=course.id,
-        year=course.year,
-        quarter=course.quarter,
-        day_of_week=course.day_of_week,
-        period=course.period,
+        year=create_course.year,
+        quarter=create_course.quarter,
+        day_of_week=create_course.day_of_week,
+        period=create_course.period,
     )
     db.add(course_date)
     db.commit()
@@ -149,41 +145,115 @@ def create_course(course: CreateCourse, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(enroll)
 
-    return course, course_date
+    # return course, course_date
+    return user
 
 
-@app.get("/api/course/{course_id}")
-def get_course(course_id: str):
-    for course in courses:
-        if course_id == course[0]:
-            return Response(status_code=204)
+@app.get("/api/courses/{year_month}")
+def get_courses(year_month: str, db: Session = Depends(get_db)):
+    year, month = map(int, year_month.split("-"))
 
-    raise HTTPException(status_code=404, detail="Corse not found")
+    user = db.query(User).first()
+    enrollments = db.query(Enrollment).filter(Enrollment.user_id == user.id).all()
 
+    if not enrollments:
+        return []
 
-@app.put("/api/course/{course_id}")
-def put_course(course: CreateCourse, course_id: str):
-    for i, cour in enumerate(courses):
-        if course_id == cour[0]:
-            courses[i] = [
-                course_id,
-                course.name,
-                course.room,
-                course.teacher,
-                course.year,
-                course.quarter,
-                course.day_of_week,
-                course.period,
+    course_ids = [enrollment.course_id for enrollment in enrollments]
+
+    courses = db.query(Course).filter(Course.id.in_(course_ids)).all()
+    course_dates = (
+        db.query(CourseDate).filter(CourseDate.course_id.in_(course_ids)).all()
+    )
+
+    course_map = {course.id: course for course in courses}
+
+    course_dates_map: dict[str, list[CourseDate]] = {}
+    for course_date in course_dates:
+        course_dates_map.setdefault(course_date.course_id, []).append(course_date)
+
+    result = []
+
+    for course_id in course_ids:
+        course = course_map.get(course_id)
+        if not course:
+            continue
+
+        course_date_list = course_dates_map.get(course_id, [])
+
+        formatted_course_dates = []
+        for course_date in course_date_list:
+            all_dates = build_class_dates(
+                course_date.year,
+                course_date.quarter,
+                course_date.day_of_week,
+            )
+
+            # 👇 月でフィルタ
+            filtered_dates = [
+                d for d in all_dates if d.year == year and d.month == month
             ]
-            return courses[i]
-    raise HTTPException(status_code=404, detail="Course not found")
+
+            if not filtered_dates:
+                continue  # この月に授業ないならスキップ
+
+            formatted_course_dates.append(
+                {
+                    "id": course_date.id,
+                    "course_id": course_date.course_id,
+                    "year": course_date.year,
+                    "quarter": course_date.quarter,
+                    "day_of_week": course_date.day_of_week,
+                    "period": course_date.period,
+                    "dates": filtered_dates,
+                }
+            )
+
+        if not formatted_course_dates:
+            continue  # この月に授業ないcourseは出さない
+
+        result.append(
+            {
+                "course": {
+                    "id": course.id,
+                    "name": course.name,
+                    "room": course.room,
+                    "teacher": course.teacher,
+                },
+                "course_dates": formatted_course_dates,
+            }
+        )
+
+    return result
+
+
+# @app.get("/api/course/{course_id}")
+# def get_course(course_id: str):
+#     for course in courses:
+#         if course_id == course[0]:
+#             return Response(status_code=204)
+
+#     raise HTTPException(status_code=404, detail="Corse not found")
 
 
 @app.delete("/api/course/{course_id}")
-def delete_course(course_id: str):
-    for i, course in enumerate(courses):
-        if course_id == course[0]:
-            courses.pop(i)
-            return Response(status_code=204)
+def delete_course(course_id: str, db: Session = Depends(get_db)):
+    course = db.query(Course).filter(Course.id == course_id).one_or_none()
 
-    raise HTTPException(status_code=404, detail="Course not found")
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    db.delete(course)
+    db.commit()
+    return Response(status_code=204)
+
+
+@app.delete("/api/course")
+def delete_all_courses(db: Session = Depends(get_db)):
+    courses = db.query(Course).all()
+
+    for course in courses:
+        db.delete(course)
+
+    db.commit()
+    return Response(status_code=204)
