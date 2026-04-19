@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from datetime import date
 from app.models.user import User  # uuid_str
 from app.models.course import Course
-from app.models.course import CourseDate
-from app.models.course import Enrollment
+from app.models.course_date import CourseDate
+from app.models.enrollment import Enrollment
 from app.db.session import get_db
 
 app = FastAPI()
