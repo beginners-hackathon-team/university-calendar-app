@@ -212,6 +212,8 @@ export default function CoursesPage() {
     );
 }
 
+//あ
+
 // --- スタイル定義 ---
 const selectorGroupStyle = { display: 'flex', flexDirection: 'column' as const, gap: '4px' };
 const selectStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', backgroundColor: '#fff', cursor: 'pointer', fontSize: '20px' };

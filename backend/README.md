@@ -21,6 +21,10 @@ uv sync
 alembic revision --autogenerate -m "コメント" 
 alembic upgrade head
 ```
+他の人はpull後に
+```
+alembic upgrade head
+```
 
 ---
 ## コンフリクトした時
