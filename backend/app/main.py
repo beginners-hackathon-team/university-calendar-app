@@ -332,3 +332,48 @@ def get_courses(year_quarter: str, db: Session = Depends(get_db)):
         )
 
     return result
+
+
+class UpdateCourse(BaseModel):
+    name: str
+    room: str
+    teacher: str
+
+
+@app.put("/api/course/{course_id}")
+def update_course(
+    course_id: str, update_course: UpdateCourse, db: Session = Depends(get_db)
+):
+    user = db.query(User).order_by(User.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    enrollment = (
+        db.query(Enrollment)
+        .filter(
+            Enrollment.user_id == user.id,
+            Enrollment.course_id == course_id,
+        )
+        .one_or_none()
+    )
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+
+    course = db.query(Course).filter(Course.id == enrollment.course_id).one_or_none()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    course.name = update_course.name
+    course.room = update_course.room
+    course.teacher = update_course.teacher
+
+    db.commit()
+    db.refresh(course)
+
+    return {
+        "id": course.id,
+        "name": course.name,
+        "room": course.room,
+        "teacher": course.teacher,
+    }
