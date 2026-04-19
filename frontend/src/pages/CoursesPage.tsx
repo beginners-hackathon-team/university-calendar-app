@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { periodToTime } from '../periodToTime';
-import { createCourses, fetchCourses } from '../api/courses';
+import { createCourses, fetchCourses, deleteCourse as apiDeleteCourse, updateCourse } from '../api/courses';
  
 const CURRENT_YEAR = 2026;
  
@@ -35,26 +35,11 @@ export default function CoursesPage() {
  
     // データ取得 (年度やクォーターが変わるたびに実行)
     useEffect(() => {
-        fetchCourses().then((data: unknown[][]) => {
+        fetchCourses(selectedYear, selectedQuarter).then((data: Course[]) => {
             const map: { [key: string]: Course } = {};
             for (const row of data) {
-                const [id, name, room, teacher, year, quarter, day_of_week, period] = row as [
-                    string, string, string, string, string | number, number, string, number
-                ];
-                // 選択中の年度・クォーターのみ採用（yearは文字列/数値が混在しうるのでNumberで比較）
-                if (Number(year) !== selectedYear) continue;
-                if (Number(quarter) !== selectedQuarter) continue;
-                const key = `${day_of_week}${period}`;
-                map[key] = {
-                    id,
-                    name,
-                    room,
-                    teacher,
-                    year: Number(year),
-                    quarter: Number(quarter),
-                    day_of_week,
-                    period,
-                };
+                const key = `${row.day_of_week}${row.period}`;
+                map[key] = row;
             }
             setCoursesData(map);
         });
@@ -75,34 +60,71 @@ export default function CoursesPage() {
     const saveCourse = async () => {
         if (!tempData.name) return alert("講義名を入力してください");
         if (!editingKey) return;
- 
+
         const day_of_week = editingKey.slice(0, 1);
         const period = Number(editingKey.slice(1));
- 
-        const result = await createCourses({
-            name: tempData.name,
-            room: tempData.room,
-            teacher: tempData.teacher,
-            year: selectedYear,
-            quarter: selectedQuarter,
-            day_of_week: day_of_week,
-            period: period,
-        });
- 
-        const [id, name, room, teacher, year, quarter, dow, per] = result;
-        const newCourse: Course = { id, name, room, teacher, year, quarter, day_of_week: dow, period: per };
- 
-        setCoursesData({ ...coursesData, [editingKey]: newCourse });
-        setIsModalOpen(false);
+        const existing = coursesData[editingKey];
+
+        try {
+            if (existing) {
+                // 編集
+                await updateCourse(existing.id, {
+                    id: existing.id,
+                    name: tempData.name,
+                    room: tempData.room,
+                    teacher: tempData.teacher,
+                });
+                const updatedCourse: Course = {
+                    id: existing.id,
+                    name: tempData.name,
+                    room: tempData.room,
+                    teacher: tempData.teacher,
+                    year: selectedYear,
+                    quarter: selectedQuarter,
+                    day_of_week,
+                    period,
+                };
+                setCoursesData({ ...coursesData, [editingKey]: updatedCourse });
+            } else {
+                // 新規追加
+                await createCourses({
+                    name: tempData.name,
+                    room: tempData.room,
+                    teacher: tempData.teacher,
+                    year: selectedYear,
+                    quarter: selectedQuarter,
+                    day_of_week,
+                    period,
+                });
+                // 登録後に一覧を再取得して id を含めて反映
+                const data: Course[] = await fetchCourses(selectedYear, selectedQuarter);
+                const map: { [key: string]: Course } = {};
+                for (const row of data) {
+                    map[`${row.day_of_week}${row.period}`] = row;
+                }
+                setCoursesData(map);
+            }
+            setIsModalOpen(false);
+        } catch (err) {
+            console.error(err);
+            alert("保存に失敗しました");
+        }
     };
  
     // 削除実行
-    const deleteCourse = (key: string) => {
-        if (window.confirm("この講義を削除しますか？")) {
+    const deleteCourse = async (key: string) => {
+        const target = coursesData[key];
+        if (!target) return;
+        if (!window.confirm("この講義を削除しますか？")) return;
+
+        try {
+            await apiDeleteCourse(target.id);
             const newData = { ...coursesData };
             delete newData[key];
             setCoursesData(newData);
-            // 本来はここで API の DELETE リクエストも送るのが理想です
+        } catch (err) {
+            console.error(err);
+            alert("削除に失敗しました");
         }
     };
  
@@ -111,7 +133,7 @@ export default function CoursesPage() {
  
     return (
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-            <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '10px' }}>🗓️ 金沢大学の時間割</h1>
+            <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '10px' }}>時間割</h1>
             
             {/* 年度・クォーター選択セレクター */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '30px' }}>

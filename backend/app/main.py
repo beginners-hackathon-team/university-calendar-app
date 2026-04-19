@@ -146,121 +146,39 @@ def create_course(create_course: CreateCourse, db: Session = Depends(get_db)):
     db.refresh(enroll)
 
     # return course, course_date
-    return user
+    return
 
 
-# @app.get("/api/courses/{year_month}")
-# def get_courses(year_month: str, db: Session = Depends(get_db)):
-#     year, month = map(int, year_month.split("-"))
-
-#     user = db.query(User).first()
-#     enrollments = db.query(Enrollment).filter(Enrollment.user_id == user.id).all()
-
-#     if not enrollments:
-#         return []
-
-#     course_ids = [enrollment.course_id for enrollment in enrollments]
-
-#     courses = db.query(Course).filter(Course.id.in_(course_ids)).all()
-#     course_dates = (
-#         db.query(CourseDate).filter(CourseDate.course_id.in_(course_ids)).all()
-#     )
-
-#     course_map = {course.id: course for course in courses}
-
-#     course_dates_map: dict[str, list[CourseDate]] = {}
-#     for course_date in course_dates:
-#         course_dates_map.setdefault(course_date.course_id, []).append(course_date)
-
-#     result = []
-
-#     for course_id in course_ids:
-#         course = course_map.get(course_id)
-#         if not course:
-#             continue
-
-#         course_date_list = course_dates_map.get(course_id, [])
-
-#         formatted_course_dates = []
-#         for course_date in course_date_list:
-#             all_dates = build_class_dates(
-#                 course_date.year,
-#                 course_date.quarter,
-#                 course_date.day_of_week,
-#             )
-
-#             # 👇 月でフィルタ
-#             filtered_dates = [
-#                 d for d in all_dates if d.year == year and d.month == month
-#             ]
-
-#             if not filtered_dates:
-#                 continue  # この月に授業ないならスキップ
-
-#             formatted_course_dates.append(
-#                 {
-#                     "id": course_date.id,
-#                     "course_id": course_date.course_id,
-#                     "year": course_date.year,
-#                     "quarter": course_date.quarter,
-#                     "day_of_week": course_date.day_of_week,
-#                     "period": course_date.period,
-#                     "dates": filtered_dates,
-#                 }
-#             )
-
-#         if not formatted_course_dates:
-#             continue  # この月に授業ないcourseは出さない
-
-#         result.append(
-#             {
-#                 "course": {
-#                     "id": course.id,
-#                     "name": course.name,
-#                     "room": course.room,
-#                     "teacher": course.teacher,
-#                 },
-#                 "course_dates": formatted_course_dates,
-#             }
-#         )
-
-#     return result
-
-
-@app.get("/api/courses/{year_month}")
-def get_courses(year_month: str, db: Session = Depends(get_db)):
+@app.get("/api/calendar/{year_month}")
+def get_calendar(year_month: str, db: Session = Depends(get_db)):
+    # URL例: /api/calendar/2026-4 （年度-月）
     year, month = map(int, year_month.split("-"))
 
     user = db.query(User).first()
-    enrollments = db.query(Enrollment).filter(Enrollment.user_id == user.id).all()
+    if not user:
+        return []
 
+    enrollments = db.query(Enrollment).filter(Enrollment.user_id == user.id).all()
     if not enrollments:
         return []
 
-    course_ids = [enrollment.course_id for enrollment in enrollments]
-
+    course_ids = [e.course_id for e in enrollments]
     courses = db.query(Course).filter(Course.id.in_(course_ids)).all()
     course_dates = (
         db.query(CourseDate).filter(CourseDate.course_id.in_(course_ids)).all()
     )
 
-    course_map = {course.id: course for course in courses}
+    course_map = {c.id: c for c in courses}
 
     result = []
-
-    for course_date in course_dates:
-        course = course_map.get(course_date.course_id)
+    for cd in course_dates:
+        course = course_map.get(cd.course_id)
         if not course:
             continue
 
-        all_dates = build_class_dates(
-            course_date.year,
-            course_date.quarter,
-            course_date.day_of_week,
-        )
-
+        # クォーター全体の開催日を生成し、指定月だけ残す
+        all_dates = build_class_dates(cd.year, cd.quarter, cd.day_of_week)
         filtered_dates = [d for d in all_dates if d.year == year and d.month == month]
-
         if not filtered_dates:
             continue
 
@@ -271,20 +189,11 @@ def get_courses(year_month: str, db: Session = Depends(get_db)):
                 "room": course.room,
                 "teacher": course.teacher,
                 "dates": filtered_dates,
-                "period": course_date.period,
+                "period": cd.period,
             }
         )
 
     return result
-
-
-# @app.get("/api/course/{course_id}")
-# def get_course(course_id: str):
-#     for course in courses:
-#         if course_id == course[0]:
-#             return Response(status_code=204)
-
-#     raise HTTPException(status_code=404, detail="Corse not found")
 
 
 @app.delete("/api/course/{course_id}")
@@ -299,7 +208,7 @@ def delete_course(course_id: str, db: Session = Depends(get_db)):
     return Response(status_code=204)
 
 
-@app.delete("/api/course")
+@app.delete("/api/courses")
 def delete_all_courses(db: Session = Depends(get_db)):
     courses = db.query(Course).all()
 
@@ -308,3 +217,99 @@ def delete_all_courses(db: Session = Depends(get_db)):
 
     db.commit()
     return Response(status_code=204)
+
+
+@app.get("/api/courses/{year_quarter}")
+def get_courses(year_quarter: str, db: Session = Depends(get_db)):
+    year, quarter = map(int, year_quarter.split("-"))
+
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    enrollments = db.query(Enrollment).filter(Enrollment.user_id == user.id).all()
+
+    if not enrollments:
+        return []
+
+    course_ids = [enrollment.course_id for enrollment in enrollments]
+
+    courses = db.query(Course).filter(Course.id.in_(course_ids)).all()
+    course_dates = (
+        db.query(CourseDate)
+        .filter(
+            CourseDate.course_id.in_(course_ids),
+            CourseDate.year == year,
+            CourseDate.quarter == quarter,
+        )
+        .all()
+    )
+
+    course_map = {course.id: course for course in courses}
+
+    result = []
+
+    for course_date in course_dates:
+        course = course_map.get(course_date.course_id)
+        if not course:
+            continue
+
+        result.append(
+            {
+                "id": course.id,
+                "name": course.name,
+                "room": course.room,
+                "teacher": course.teacher,
+                "year": course_date.year,
+                "quarter": course_date.quarter,
+                "day_of_week": course_date.day_of_week,
+                "period": course_date.period,
+            }
+        )
+
+    return result
+
+
+class UpdateCourse(BaseModel):
+    name: str
+    room: str
+    teacher: str
+
+
+@app.put("/api/course/{course_id}")
+def update_course(
+    course_id: str, update_course: UpdateCourse, db: Session = Depends(get_db)
+):
+    user = db.query(User).order_by(User.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    enrollment = (
+        db.query(Enrollment)
+        .filter(
+            Enrollment.user_id == user.id,
+            Enrollment.course_id == course_id,
+        )
+        .one_or_none()
+    )
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+
+    course = db.query(Course).filter(Course.id == enrollment.course_id).one_or_none()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    course.name = update_course.name
+    course.room = update_course.room
+    course.teacher = update_course.teacher
+
+    db.commit()
+    db.refresh(course)
+
+    return {
+        "id": course.id,
+        "name": course.name,
+        "room": course.room,
+        "teacher": course.teacher,
+    }

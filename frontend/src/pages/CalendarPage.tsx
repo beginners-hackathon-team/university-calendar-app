@@ -5,8 +5,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core/index.js';
 import { useState, useEffect } from 'react';
-import { fetchCourses } from '../api/courses';
-import { fetchCalendar, formatCalendarData } from '../api/calendar';
+import { fetchCalendar } from '../api/calendar';
 import { periodToTime } from '../periodToTime';
  
  
@@ -28,13 +27,11 @@ type EventType = {
  
 export default function CalendarPage() {
   const [events, setEvents] = useState<EventType[]>([]);
- 
-  // 既存のコース取得処理（元のコードを維持）
-  useEffect(() => {
-    fetchCourses().then(data => {
-      console.log('取得したデータ', data);
-    })
-  }, [])
+  // FullCalendar が現在表示している月（初期値は今日の月）
+  const [viewYearMonth, setViewYearMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
  
   const getLocalDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -112,37 +109,35 @@ export default function CalendarPage() {
   }, []);
  
   useEffect(() => {
-  fetchCalendar()
-    .then((raw) => {
-      const courses = formatCalendarData(raw);
- 
-      const courseEvents = courses.flatMap((course) => {
-        const time = periodToTime.find((p) => p.period === course.period);
-        if (!time) return [];
- 
-        return course.dates.map((date) => ({
-          id: `course-${course.id}-${date}`,
-          title: course.name,
-          start: `${date}T${time.start}:00`,
-          end: `${date}T${time.end}:00`,
-          className: 'is-course',
-          color: '#bfdbfe',
-          textColor: '#1e3a8a',
-          editable: false,
-        }));
+    fetchCalendar(viewYearMonth.year, viewYearMonth.month)
+      .then((courses) => {
+        const courseEvents = courses.flatMap((course) => {
+          const time = periodToTime.find((p) => p.period === course.period);
+          if (!time) return [];
+
+          return course.dates.map((date) => ({
+            id: `course-${course.id}-${date}`,
+            title: course.name,
+            start: `${date}T${time.start}:00`,
+            end: `${date}T${time.end}:00`,
+            className: 'is-course',
+            color: '#bfdbfe',
+            textColor: '#1e3a8a',
+            editable: false,
+          }));
+        });
+
+        setEvents((prev) => {
+          const withoutCourses = prev.filter(
+            (event) => !event.id?.startsWith('course-')
+          );
+          return [...withoutCourses, ...courseEvents];
+        });
+      })
+      .catch((err) => {
+        console.error('calendar取得失敗', err);
       });
- 
-      setEvents((prev) => {
-        const withoutCourses = prev.filter(
-          (event) => !event.id?.startsWith('course-')
-        );
-        return [...withoutCourses, ...courseEvents];
-      });
-    })
-    .catch((err) => {
-      console.error('calendar取得失敗', err);
-    });
- }, []);
+  }, [viewYearMonth]);
  
  
   // 予定を追加する処理
@@ -202,7 +197,7 @@ export default function CalendarPage() {
       `}</style>
  
       <h1 style={{ textAlign: 'center', marginBottom: '20px', color: '#111827', fontSize: '28px', fontWeight: 'bold' }}>
-        アカンサスカレンダー
+        カレンダー
       </h1>
  
       <FullCalendar
@@ -214,6 +209,14 @@ export default function CalendarPage() {
         selectMirror={true}
         select={handleDateSelect}
         eventClick={handleEventClick}
+        datesSet={(arg) => {
+          // 表示中の月の中心日付から年月を特定
+          const mid = new Date((arg.view.activeStart.getTime() + arg.view.activeEnd.getTime()) / 2);
+          const next = { year: mid.getFullYear(), month: mid.getMonth() + 1 };
+          setViewYearMonth(prev =>
+            prev.year === next.year && prev.month === next.month ? prev : next
+          );
+        }}
        
         // 元のコードにあった詳細設定を維持
         scrollTime="07:00:00"
@@ -239,7 +242,18 @@ export default function CalendarPage() {
           right: 'dayGridMonth,timeGridWeek,timeGridDay',
         }}
        
-        events={events}
+        events={(() => {
+          const holidayDates = new Set(
+            events
+              .filter(e => e.className === 'is-holiday')
+              .map(e => (typeof e.start === 'string' ? e.start.split('T')[0] : ''))
+          );
+          return events.filter(e => {
+            if (e.className !== 'is-course') return true;
+            const dateOnly = typeof e.start === 'string' ? e.start.split('T')[0] : '';
+            return !holidayDates.has(dateOnly);
+          });
+        })()}
       />
     </div>
   );

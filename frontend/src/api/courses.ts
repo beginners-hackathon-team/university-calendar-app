@@ -1,8 +1,7 @@
-export async function fetchCourses() {
-    const res = await fetch('/api/courses');
+export async function fetchCourses(year: number, quarter: number) {
+    const res = await fetch(`/api/courses/${year}-${quarter}`);
     if (!res.ok) throw new Error('取得失敗');
     return res.json();
-    
 }
 
 export async function createCourses(data:{
@@ -20,6 +19,7 @@ export async function createCourses(data:{
         body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('登録失敗');
+    console.log(res)
     return res.json();
 }
 
@@ -30,10 +30,6 @@ export async function updateCourse(
         name: string;
         room: string;
         teacher: string;
-        year: number;
-        quarter: number;
-        day_of_week: string;
-        period: number;
 }) {
     const url = `/api/course/${courseId}`;
 
@@ -43,6 +39,7 @@ export async function updateCourse(
         body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('更新失敗');
+    // console.log(res)
     return res.json();
 }
 
