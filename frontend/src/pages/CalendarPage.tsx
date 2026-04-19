@@ -3,12 +3,31 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import jaLocale from '@fullcalendar/core/locales/ja';
+import type { DateSelectArg, EventClickArg } from '@fullcalendar/core/index.js';
 import { useState, useEffect } from 'react';
+import { fetchCourses } from '../api/courses';
+
+type EventType = {
+  title: string;
+  start: Date | string // 祝日は文字列
+  color?: string;
+  id?: string;
+  className?: string;
+  allDay?: boolean;
+  editable?: boolean;
+  display?: string;
+  textColor?: string;
+  end?: string;
+}
 
 export default function CalendarPage() {
-  const [events, setEvents] = useState([
-    { id: 'initial-1', title: 'ミーティング', start: new Date(), color: '#4f46e5' }
-  ]);
+  const [events, setEvents] = useState<EventType[]>([]);
+
+  useEffect(() => {
+    fetchCourses().then(data => {
+      console.log('取得したデータ', data);
+    })
+  }, [])
 
   const getLocalDateString = (date: Date) => {
     const year = date.getFullYear();
@@ -41,9 +60,9 @@ export default function CalendarPage() {
   }, []);
 
   // 予定を追加する処理
-  const handleDateSelect = (selectInfo: any) => {
-    let title = prompt('予定のタイトルを入力してください');
-    let calendarApi = selectInfo.view.calendar;
+  const handleDateSelect = (selectInfo: DateSelectArg) => {
+    const title = prompt('予定のタイトルを入力してください');
+    const calendarApi = selectInfo.view.calendar;
     calendarApi.unselect();
 
     if (title) {
@@ -60,7 +79,7 @@ export default function CalendarPage() {
   };
 
   // ★ 予定をクリックして削除する処理を追加
-  const handleEventClick = (clickInfo: any) => {
+  const handleEventClick = (clickInfo: EventClickArg) => {
     // 祝日は削除できないようにする
     if (clickInfo.event.extendedProps.className === 'is-holiday') {
       return;

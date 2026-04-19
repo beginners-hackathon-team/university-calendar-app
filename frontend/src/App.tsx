@@ -1,26 +1,19 @@
-import {useState} from "react";
+import { Routes, Route } from "react-router-dom";
+import CalendarPage from "./pages/CalendarPage";
+import CoursesPage from "./pages/CoursesPage";
+import Layout from "./Layout";
 
-    export default function APP(){
-    const [count, setCount] = useState(0);
-
+export default function App() {
+    
     return (
-    <div>
-      <h2>カウンター</h2>
-      <div>
-        {count}
-      </div>
-      <div>
-        <button
-          onClick={() => setCount(count + 1)}>
-          +1
-        </button>
-        <button
-          onClick={() => setCount(count - 1)}
-          >
-          -1
-        </button>
-      </div>
-    </div>
-  );
-}
+        <Routes>
+            <Route element={<Layout />}>
+                <Route path="/" element={<CalendarPage />} />
+                <Route path="/courses" element={<CoursesPage />} />
+            </Route>
 
+            <Route path="*" element={<h2>Not Found Page</h2>} />
+        </Routes>
+    );
+
+}
