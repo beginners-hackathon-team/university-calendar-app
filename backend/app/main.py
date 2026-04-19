@@ -2,7 +2,10 @@ from fastapi import FastAPI, Response, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from datetime import date
-from app.models.user import User, uuid_str
+from app.models.user import User  # uuid_str
+from app.models.course import Course
+from app.models.course_date import CourseDate
+from app.models.enrollment import Enrollment
 from app.db.session import get_db
 
 app = FastAPI()
@@ -123,22 +126,30 @@ def get_courses():
 
 
 @app.post("/api/course")
-def create_course(course: CreateCourse):
-    course_id = uuid_str()
+def create_course(course: CreateCourse, db: Session = Depends(get_db)):
+    course = Course(name=course.name, room=course.room, teacher=course.teacher)
+    db.add(course)
+    db.commit()
+    db.refresh(course)
 
-    new_course = [
-        course_id,
-        course.name,
-        course.room,
-        course.teacher,
-        course.year,
-        course.quarter,
-        course.day_of_week,
-        course.period,
-    ]
-    courses.append(new_course)
+    course_date = CourseDate(
+        course_id=course.id,
+        year=course.year,
+        quarter=course.quarter,
+        day_of_week=course.day_of_week,
+        period=course.period,
+    )
+    db.add(course_date)
+    db.commit()
+    db.refresh(course_date)
 
-    return new_course
+    user = db.query(User).first()
+    enroll = Enrollment(course_id=course.id, user_id=user.id)
+    db.add(enroll)
+    db.commit()
+    db.refresh(enroll)
+
+    return course, course_date
 
 
 @app.get("/api/course/{course_id}")

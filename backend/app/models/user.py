@@ -1,11 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String
-from uuid import uuid4
+from app.utils.uuid import uuid_str
 from app.db.base import Base
-
-
-def uuid_str() -> str:
-    return str(uuid4())
 
 
 class User(Base):
