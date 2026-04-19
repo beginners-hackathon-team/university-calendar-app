@@ -10,3 +10,4 @@ class Course(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=uuid_str)
     name: Mapped[str] = mapped_column(String)
     room: Mapped[str] = mapped_column(String)
+    teacher: Mapped[str] = mapped_column(String)
