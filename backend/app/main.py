@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Response, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr
-from pytest import Session
+from sqlalchemy.orm import Session
 from datetime import date
 from app.models.user import User, uuid_str
 from app.db.session import get_db
