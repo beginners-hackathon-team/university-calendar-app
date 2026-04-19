@@ -12,5 +12,6 @@ class CourseDate(Base):
         String, Foreign_key("courses.id", ondelete="CASCADE")
     )
     year: Mapped[int] = mapped_column(Integer)
+    quarter: Mapped[int] = mapped_column(Integer)
     day_of_week: Mapped[str] = mapped_column(String)
     period: Mapped[int] = mapped_column(Integer)
